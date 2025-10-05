@@ -1,0 +1,297 @@
+{
+	"info": {
+		"_postman_id": "chronologicon-api-2024",
+		"name": "Chronologicon Engine API",
+		"description": "Complete API collection for the Chronologicon Engine backend with all 7 endpoints.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/health",
+					"host": ["{{baseUrl}}"],
+					"path": ["health"]
+				},
+				"description": "Health check endpoint to verify the service is running."
+			},
+			"response": []
+		},
+		{
+			"name": "1. Ingest Events (File Upload)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 202) {",
+							"    const response = pm.response.json();",
+							"    pm.environment.set(\"jobId\", response.jobId);",
+							"    pm.test(\"Job ID saved\", () => {",
+							"        pm.expect(response.jobId).to.exist;",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"description": "Upload pipe-separated file with historical events",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/events/ingest",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "events", "ingest"]
+				},
+				"description": "Upload a file to ingest historical events (multipart/form-data mode).\n\n**File Format:**\nPipe-separated: EVENT_ID|EVENT_NAME|START_DATE_ISO|END_DATE_ISO|PARENT_ID_OR_NULL|RESEARCH_VALUE|DESCRIPTION\n\n**Response (202):**\n```json\n{\n  \"status\": \"Ingestion initiated\",\n  \"jobId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"message\": \"Check /api/events/ingestion-status/{jobId} for updates.\",\n  \"ingestionMode\": \"file-upload\"\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "1b. Ingest Events (Server Path)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 202) {",
+							"    const response = pm.response.json();",
+							"    pm.environment.set(\"jobId\", response.jobId);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"filePath\": \"/path/to/server/data/sample_historical_data.txt\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/events/ingest",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "events", "ingest"]
+				},
+				"description": "Ingest events from a server file path (application/json mode).\n\n⚠️ **Security Note:** Can access any file on server. Use authentication in production.\n\n**Response (202):**\n```json\n{\n  \"status\": \"Ingestion initiated\",\n  \"jobId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"message\": \"Check /api/events/ingestion-status/{jobId} for updates.\",\n  \"ingestionMode\": \"server-file-path\"\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "2. Get Ingestion Status",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/events/ingestion-status/{{jobId}}",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "events", "ingestion-status", "{{jobId}}"]
+				},
+				"description": "Check status of an ingestion job.\n\n**Response (200):**\n```json\n{\n  \"job_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"status\": \"COMPLETED\",\n  \"file_path\": \"uploads/file.txt\",\n  \"total_lines\": 100,\n  \"processed_lines\": 85,\n  \"error_lines\": 15,\n  \"errors\": [\n    \"Line 5: Invalid UUID format for event_id: 'bad-id'\",\n    \"Line 12: end_date must be after start_date\"\n  ],\n  \"start_time\": \"2024-01-01T10:00:00.000Z\",\n  \"end_time\": \"2024-01-01T10:00:30.000Z\",\n  \"created_at\": \"2024-01-01T10:00:00.000Z\",\n  \"updated_at\": \"2024-01-01T10:00:30.000Z\"\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "3. Get Timeline",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 200) {",
+							"    const response = pm.response.json();",
+							"    if (response.event_id) {",
+							"        pm.environment.set(\"rootEventId\", response.event_id);",
+							"    }",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/timeline/{{rootEventId}}",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "timeline", "{{rootEventId}}"]
+				},
+				"description": "Get hierarchical timeline from a root event.\n\n**Response (200):**\n```json\n{\n  \"event_id\": \"a1b2c3d4-e5f6-7890-1234-567890abcdef\",\n  \"event_name\": \"Founding of ArchaeoData\",\n  \"description\": \"Initial establishment of the company\",\n  \"start_date\": \"2023-01-01T10:00:00.000Z\",\n  \"end_date\": \"2023-01-01T11:30:00.000Z\",\n  \"duration_minutes\": 90,\n  \"parent_event_id\": null,\n  \"research_value\": 8,\n  \"children\": [\n    {\n      \"event_id\": \"f7e6d5c4-b3a2-1098-7654-3210fedcba98\",\n      \"event_name\": \"Phase 1 Research\",\n      \"description\": \"Early research on data fragmentation\",\n      \"start_date\": \"2023-01-01T10:30:00.000Z\",\n      \"end_date\": \"2023-01-01T11:00:00.000Z\",\n      \"duration_minutes\": 30,\n      \"parent_event_id\": \"a1b2c3d4-e5f6-7890-1234-567890abcdef\",\n      \"research_value\": 6,\n      \"children\": []\n    }\n  ]\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "4. Search Events",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/events/search?name=phase&start_date_after=2023-01-01T00:00:00Z&end_date_before=2023-12-31T23:59:59Z&sortBy=start_date&sortOrder=asc&page=1&limit=10",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "events", "search"],
+					"query": [
+						{
+							"key": "name",
+							"value": "phase",
+							"description": "Partial match for event_name (case-insensitive)"
+						},
+						{
+							"key": "start_date_after",
+							"value": "2023-01-01T00:00:00Z",
+							"description": "Events starting after this date (optional)"
+						},
+						{
+							"key": "end_date_before",
+							"value": "2023-12-31T23:59:59Z",
+							"description": "Events ending before this date (optional)"
+						},
+						{
+							"key": "sortBy",
+							"value": "start_date",
+							"description": "Sort field: start_date, end_date, event_name, duration_minutes (optional)"
+						},
+						{
+							"key": "sortOrder",
+							"value": "asc",
+							"description": "asc or desc (optional, default: asc)"
+						},
+						{
+							"key": "page",
+							"value": "1",
+							"description": "Page number (optional, default: 1)"
+						},
+						{
+							"key": "limit",
+							"value": "10",
+							"description": "Results per page (optional, default: 10)"
+						}
+					]
+				},
+				"description": "Search events with filters, sorting, and pagination.\n\n**Response (200):**\n```json\n{\n  \"totalEvents\": 2,\n  \"page\": 1,\n  \"limit\": 10,\n  \"events\": [\n    {\n      \"event_id\": \"f7e6d5c4-b3a2-1098-7654-3210fedcba98\",\n      \"event_name\": \"Phase 1 Research\",\n      \"start_date\": \"2023-01-01T10:30:00.000Z\",\n      \"end_date\": \"2023-01-01T11:00:00.000Z\",\n      \"duration_minutes\": 30\n    }\n  ]\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "5. Get Overlapping Events",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/insights/overlapping-events",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "insights", "overlapping-events"]
+				},
+				"description": "Find all pairs of events with overlapping timeframes.\n\n**Response (200):**\n```json\n[\n  {\n    \"overlappingEventPairs\": [\n      {\n        \"event_id\": \"a1b2c3d4-e5f6-7890-1234-567890abcdef\",\n        \"event_name\": \"Founding of ArchaeoData\",\n        \"start_date\": \"2023-01-01T10:00:00.000Z\",\n        \"end_date\": \"2023-01-01T11:30:00.000Z\"\n      },\n      {\n        \"event_id\": \"f7e6d5c4-b3a2-1098-7654-3210fedcba98\",\n        \"event_name\": \"Phase 1 Research\",\n        \"start_date\": \"2023-01-01T10:30:00.000Z\",\n        \"end_date\": \"2023-01-01T11:00:00.000Z\"\n      }\n    ],\n    \"overlap_duration_minutes\": 30\n  }\n]\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "6. Get Temporal Gaps",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/insights/temporal-gaps?startDate=2023-01-01T00:00:00Z&endDate=2023-12-31T23:59:59Z",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "insights", "temporal-gaps"],
+					"query": [
+						{
+							"key": "startDate",
+							"value": "2023-01-01T00:00:00Z",
+							"description": "Start of date range (required)"
+						},
+						{
+							"key": "endDate",
+							"value": "2023-12-31T23:59:59Z",
+							"description": "End of date range (required)"
+						}
+					]
+				},
+				"description": "Find the largest temporal gap in a date range.\n\n**Response (200) - Gap Found:**\n```json\n{\n  \"largestGap\": {\n    \"startOfGap\": \"2023-01-10T16:00:00.000Z\",\n    \"endOfGap\": \"2023-01-15T09:00:00.000Z\",\n    \"durationMinutes\": 6780,\n    \"precedingEvent\": {\n      \"event_id\": \"9b8a7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n      \"event_name\": \"Marketing Campaign Launch\",\n      \"end_date\": \"2023-01-10T16:00:00.000Z\"\n    },\n    \"succeedingEvent\": {\n      \"event_id\": \"0d9e8f7a-6b5c-4d3e-2f1a-0b9c8d7e6f5a\",\n      \"event_name\": \"Customer Onboarding Phase\",\n      \"start_date\": \"2023-01-15T09:00:00.000Z\"\n    }\n  },\n  \"message\": \"Largest temporal gap identified.\"\n}\n```\n\n**Response (200) - No Gaps:**\n```json\n{\n  \"largestGap\": null,\n  \"message\": \"No significant temporal gaps found within the specified range, or too few events.\"\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "7. Get Event Influence (Shortest Path)",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/api/insights/event-influence?sourceEventId=d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a&targetEventId=c6d7e8f9-a0b1-c2d3-e4f5-a6b7c8d9e0f1",
+					"host": ["{{baseUrl}}"],
+					"path": ["api", "insights", "event-influence"],
+					"query": [
+						{
+							"key": "sourceEventId",
+							"value": "d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a",
+							"description": "Source event UUID (required)"
+						},
+						{
+							"key": "targetEventId",
+							"value": "c6d7e8f9-a0b1-c2d3-e4f5-a6b7c8d9e0f1",
+							"description": "Target event UUID (required)"
+						}
+					]
+				},
+				"description": "Find shortest temporal path between source and target events.\n\n**Response (200) - Path Found:**\n```json\n{\n  \"sourceEventId\": \"d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a\",\n  \"targetEventId\": \"c6d7e8f9-a0b1-c2d3-e4f5-a6b7c8d9e0f1\",\n  \"shortestPath\": [\n    {\n      \"event_id\": \"d1e2f3a4-b5c6-7d8e-9f0a-1b2c3d4e5f6a\",\n      \"event_name\": \"Project Gaia Initiation\",\n      \"duration_minutes\": 60\n    },\n    {\n      \"event_id\": \"a4b5c6d7-e8f9-a0b1-c2d3-e4f5a6b7c8d9\",\n      \"event_name\": \"Algorithm Development\",\n      \"duration_minutes\": 480\n    },\n    {\n      \"event_id\": \"c6d7e8f9-a0b1-c2d3-e4f5-a6b7c8d9e0f1\",\n      \"event_name\": \"Deployment Planning\",\n      \"duration_minutes\": 180\n    }\n  ],\n  \"totalDurationMinutes\": 720,\n  \"message\": \"Shortest temporal path found from source to target event.\"\n}\n```\n\n**Response (200) - No Path:**\n```json\n{\n  \"sourceEventId\": \"9b8a7c6d-5e4f-3a2b-1c0d-9e8f7a6b5c4d\",\n  \"targetEventId\": \"c8d7e6f5-a4b3-2109-8765-4321fedcba98\",\n  \"shortestPath\": [],\n  \"totalDurationMinutes\": 0,\n  \"message\": \"No temporal path found from source to target event.\"\n}\n```"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [""]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [""]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:3000",
+			"type": "string"
+		},
+		{
+			"key": "jobId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "rootEventId",
+			"value": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+			"type": "string"
+		}
+	]
+}
